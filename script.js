@@ -29,7 +29,9 @@ function showBug() {
   if (!gameActive) return;
   const holes = Array.from(document.querySelectorAll('.hole'));
   const emptyHoles = holes.filter(hole => !hole.querySelector('.bug'));
-  if (emptyHoles.length === 0) return;
+  // Limit to 3 bugs on screen at once
+  const currentBugs = document.querySelectorAll('.bug').length;
+  if (emptyHoles.length === 0 || currentBugs >= 3) return;
   const hole = emptyHoles[Math.floor(Math.random() * emptyHoles.length)];
   const bug = document.createElement('span');
   // 15% chance for a time bug
@@ -73,7 +75,7 @@ function showBug() {
       bug.parentNode.removeChild(bug);
     }
     hole.classList.remove('active');
-  }, 1200);
+  }, 2000); // Bug stays for 2 seconds
   bugTimeouts.push(bugTimeout);
   bug.addEventListener('transitionend', () => {
     hole.classList.remove('active');
@@ -104,12 +106,12 @@ function startGame() {
       endGame();
     }
   }, 1000);
-  // Spawn bugs at random intervals
+  // Spawn bugs at much faster random intervals
   bugInterval = setInterval(() => {
     if (gameActive) {
       showBug();
     }
-  }, 500 + Math.random() * 400);
+  }, 150 + Math.random() * 150); // 150-300ms
 }
 
 function endGame() {
