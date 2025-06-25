@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bug Smash Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f7e0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      margin-top: 30px;
+      margin-bottom: 10px;
+      color: #4b3f1d;
+    }
+    .score-timer {
+      display: flex;
+      gap: 40px;
+      font-size: 1.3em;
+      margin-bottom: 20px;
+    }
+    .game-board {
+      display: grid;
+      grid-template-columns: repeat(3, 80px);
+      grid-template-rows: repeat(3, 80px);
+      gap: 18px;
+      background: #e2d7b7;
+      padding: 30px;
+      border-radius: 18px;
+      box-shadow: 0 4px 16px #b8a97a44;
+    }
+    .hole {
+      width: 80px;
+      height: 80px;
+      background: #b8a97a;
+      border-radius: 50%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s;
+      box-shadow: 0 2px 8px #a08c5a33;
+    }
+    .hole.active {
+      background: #a08c5a;
+    }
+    .bug {
+      font-size: 2.5em;
+      user-select: none;
+      cursor: pointer;
+      transition: transform 0.1s;
+      position: absolute;
+      top: 18px;
+      left: 0;
+      right: 0;
+      margin: auto;
+      width: 44px;
+      height: 44px;
+      z-index: 2;
+    }
+    .bug.squashed {
+      color: #b22222;
+      transform: scale(1.2) rotate(-20deg);
+      filter: grayscale(1);
+    }
+    .start-btn {
+      margin-top: 18px;
+      padding: 10px 28px;
+      font-size: 1.1em;
+      background: #4b3f1d;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .start-btn:hover {
+      background: #6b542a;
+    }
+    .game-over {
+      font-size: 1.5em;
+      color: #b22222;
+      margin-top: 18px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Bug Smash!</h1>
+  <div class="score-timer">
+    <div>Score: <span id="score">0</span></div>
+    <div>Time: <span id="timer">10</span>s</div>
+  </div>
+  <div class="game-board" id="gameBoard">
+    <!-- Holes will be generated here -->
+  </div>
+  <button class="start-btn" id="startBtn">Start Game</button>
+  <div class="game-over" id="gameOver" style="display:none;">Game Over!</div>
+  <script>
+    const NUM_HOLES = 9;
+    const BUGS = ['41C', '\uD83D\uDC1B', '\uD83D\uDC1E', '\uD83D\uDC1F']; // 🐜, 🐛, 🐞, 🐟 (as example)
+    const SQUASHED = '\u274C'; // ❌
+    const gameBoard = document.getElementById('gameBoard');
+    const scoreEl = document.getElementById('score');
+    const timerEl = document.getElementById('timer');
+    const startBtn = document.getElementById('startBtn');
+    const gameOverEl = document.getElementById('gameOver');
+    let score = 0;
+    let timeLeft = 10;
+    let gameActive = false;
+    let bugTimeouts = [];
+    let timerInterval = null;
+    let bugInterval = null;
+
+    // Generate holes
+    function createBoard() {
+      gameBoard.innerHTML = '';
+      for (let i = 0; i < NUM_HOLES; i++) {
+        const hole = document.createElement('div');
+        hole.className = 'hole';
+        hole.dataset.index = i;
+        gameBoard.appendChild(hole);
+      }
+    }
+
+    // Show a bug in a random hole
+    function showBug() {
+      if (!gameActive) return;
+      const holes = Array.from(document.querySelectorAll('.hole'));
+      // Only show bug in empty holes
+      const emptyHoles = holes.filter(hole => !hole.querySelector('.bug'));
+      if (emptyHoles.length === 0) return;
+      const hole = emptyHoles[Math.floor(Math.random() * emptyHoles.length)];
+      const bug = document.createElement('span');
+      bug.className = 'bug';
+      bug.textContent = randomBug();
+      bug.addEventListener('click', function squashBug(e) {
+        if (!bug.classList.contains('squashed')) {
+          bug.classList.add('squashed');
+          bug.textContent = '\u274C'; // ❌
+          score += 10;
+          scoreEl.textContent = score;
+          setTimeout(() => {
+            if (bug.parentNode) bug.parentNode.removeChild(bug);
+          }, 400);
+        }
+        e.stopPropagation();
+      });
+      hole.appendChild(bug);
+      hole.classList.add('active');
+      // Remove bug after 1.2s if not squashed
+      const bugTimeout = setTimeout(() => {
+        if (bug.parentNode && !bug.classList.contains('squashed')) {
+          bug.parentNode.removeChild(bug);
+        }
+        hole.classList.remove('active');
+      }, 1200);
+      bugTimeouts.push(bugTimeout);
+      // Remove active class when bug is gone
+      bug.addEventListener('transitionend', () => {
+        hole.classList.remove('active');
+      });
+    }
+
+    function randomBug() {
+      // Only use bug emojis
+      const bugEmojis = ['\uD83D\uDC1B', '\uD83D\uDC1C', '\uD83D\uDC1E']; // 🐛, 🐜, 🐞
+      return String.fromCodePoint(...bugEmojis[Math.floor(Math.random() * bugEmojis.length)].split('\\u').slice(1).map(h=>parseInt(h,16)));
+    }
+
+    function startGame() {
+      score = 0;
+      timeLeft = 10;
+      scoreEl.textContent = score;
+      timerEl.textContent = timeLeft;
+      gameActive = true;
+      gameOverEl.style.display = 'none';
+      startBtn.disabled = true;
+      clearAllBugs();
+      createBoard();
+      // Start timer
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerEl.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          endGame();
+        }
+      }, 1000);
+      // Spawn bugs at random intervals
+      bugInterval = setInterval(() => {
+        if (gameActive) {
+          showBug();
+        }
+      }, 500 + Math.random() * 400);
+    }
+
+    function endGame() {
+      gameActive = false;
+      clearInterval(timerInterval);
+      clearInterval(bugInterval);
+      clearAllBugs();
+      startBtn.disabled = false;
+      gameOverEl.textContent = `Game Over! Final Score: ${score}`;
+      gameOverEl.style.display = 'block';
+    }
+
+    function clearAllBugs() {
+      bugTimeouts.forEach(t => clearTimeout(t));
+      bugTimeouts = [];
+      document.querySelectorAll('.bug').forEach(bug => {
+        if (bug.parentNode) bug.parentNode.removeChild(bug);
+      });
+      document.querySelectorAll('.hole').forEach(hole => hole.classList.remove('active'));
+    }
+
+    startBtn.addEventListener('click', startGame);
+    createBoard();
+  </script>
+</body>
+</html>
